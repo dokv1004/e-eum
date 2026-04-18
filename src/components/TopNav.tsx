@@ -112,23 +112,28 @@ export default function TopNav() {
             <>
               {user ? (
                 <div className="hidden sm:flex items-center gap-2">
-                  {/* Profile */}
-                  {user.photoURL ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={user.photoURL}
-                      alt={displayName}
-                      className="w-9 h-9 rounded-full border-2 border-slate-200"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-sm">
-                      {displayName.charAt(0)}
-                    </div>
-                  )}
-                  <span className="text-sm font-bold text-slate-700 hidden lg:block max-w-[7rem] truncate">
-                    {displayName}
-                  </span>
+                  {/* Profile — 클릭 시 마이페이지 */}
+                  <Link
+                    href="/mypage"
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
+                    {user.photoURL ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={user.photoURL}
+                        alt={displayName}
+                        className="w-9 h-9 rounded-full border-2 border-slate-200"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-sm">
+                        {displayName.charAt(0)}
+                      </div>
+                    )}
+                    <span className="text-sm font-bold text-slate-700 hidden lg:block max-w-[7rem] truncate">
+                      {displayName}
+                    </span>
+                  </Link>
 
                   {/* Admin Link — 관리자 이메일만 표시 */}
                   {isAdmin && (
@@ -210,7 +215,11 @@ export default function TopNav() {
             <div className="mt-2 pt-3 border-t border-slate-100">
               {user ? (
                 <div className="space-y-1">
-                  <div className="flex items-center gap-3 px-4 py-3">
+                  <Link
+                    href="/mypage"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-slate-50 transition-colors"
+                  >
                     {user.photoURL ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
@@ -227,7 +236,7 @@ export default function TopNav() {
                     <span className="font-bold text-slate-700 truncate">
                       {displayName}
                     </span>
-                  </div>
+                  </Link>
                   {isAdmin && (
                     <Link
                       href="/admin"
