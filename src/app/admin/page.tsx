@@ -282,7 +282,7 @@ export default function AdminPage() {
                       />
                       <input
                         type="text"
-                        value={item.youtubeUrl}
+                        value={item.youtubeUrl || ""}
                         onChange={(e) =>
                           updateContiItem(index, "youtubeUrl", e.target.value)
                         }
@@ -376,7 +376,8 @@ export default function AdminPage() {
                 onClick={addServiceItem}
                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 text-slate-500 hover:text-blue-600 font-bold text-lg transition-colors"
               >
-                <Plus className="w-5 h-5" />예배 추가
+                <Plus className="w-5 h-5" />
+                예배 추가
               </button>
             </>
           )}
