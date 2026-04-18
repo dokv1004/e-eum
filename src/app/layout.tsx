@@ -24,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${notoSansKR.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-50 font-sans text-slate-900">
+    <html lang="ko" className={`${notoSansKR.variable} h-full antialiased overscroll-none`}>
+      <body className="min-h-full flex flex-col bg-slate-50 font-sans text-slate-900 overscroll-none">
         <TopNav />
         <main className="flex-1">{children}</main>
       </body>
