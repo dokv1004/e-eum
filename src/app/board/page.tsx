@@ -1,8 +1,24 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { MessageSquareText, ChevronRight } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import {
+  MessageSquareText,
+  ChevronRight,
+  Plus,
+} from "lucide-react";
 import { motion } from "motion/react";
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  type Timestamp,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format } from "date-fns";
 
 interface Category {
   id: string;
@@ -17,83 +33,15 @@ const categories: Category[] = [
 ];
 
 interface Post {
-  id: number;
+  id: string;
   category: string;
   title: string;
-  author: string;
-  date: string;
-  commentCount: number;
+  authorName: string;
+  createdAt: Timestamp | null;
 }
 
-const dummyPosts: Post[] = [
-  {
-    id: 1,
-    category: "eagle",
-    title: "이번 주 주일예배 찬양 악보 공유합니다",
-    author: "김인도",
-    date: "2026-04-16",
-    commentCount: 3,
-  },
-  {
-    id: 2,
-    category: "wingwing",
-    title: "윙윙부 여름 수련회 일정 안내",
-    author: "이교사",
-    date: "2026-04-15",
-    commentCount: 12,
-  },
-  {
-    id: 3,
-    category: "youth",
-    title: "청년부 금요 모임 장소 변경 안내",
-    author: "박청년",
-    date: "2026-04-15",
-    commentCount: 5,
-  },
-  {
-    id: 4,
-    category: "eagle",
-    title: "새벽기도회 특별 기도제목 나눔",
-    author: "최집사",
-    date: "2026-04-14",
-    commentCount: 8,
-  },
-  {
-    id: 5,
-    category: "all",
-    title: "교회 주차장 공사 안내 (4/20~5/10)",
-    author: "관리팀",
-    date: "2026-04-14",
-    commentCount: 2,
-  },
-  {
-    id: 6,
-    category: "youth",
-    title: "청년부 MT 참가비 안내 및 신청",
-    author: "정리더",
-    date: "2026-04-13",
-    commentCount: 15,
-  },
-  {
-    id: 7,
-    category: "wingwing",
-    title: "어린이 주일 특별 공연 연습 일정",
-    author: "송교사",
-    date: "2026-04-13",
-    commentCount: 4,
-  },
-  {
-    id: 8,
-    category: "eagle",
-    title: "새가족 환영회 봉사자 모집합니다",
-    author: "한집사",
-    date: "2026-04-12",
-    commentCount: 6,
-  },
-];
-
 function CategoryTabs({
-  categories,
+  categories: cats,
   activeId,
   onSelect,
 }: {
@@ -106,7 +54,11 @@ function CategoryTabs({
   useEffect(() => {
     const active = scrollRef.current?.querySelector("[data-active=true]");
     if (active) {
-      active.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      active.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
     }
   }, [activeId]);
 
@@ -115,7 +67,7 @@ function CategoryTabs({
       ref={scrollRef}
       className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4 sm:-mx-0 sm:px-0"
     >
-      {categories.map((cat) => {
+      {cats.map((cat) => {
         const isActive = cat.id === activeId;
         return (
           <button
@@ -148,12 +100,35 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function BoardPage() {
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState("all");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "posts"),
+      orderBy("createdAt", "desc"),
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Post[];
+        setPosts(data);
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return () => unsubscribe();
+  }, []);
 
   const filtered =
     activeCategory === "all"
-      ? dummyPosts
-      : dummyPosts.filter((p) => p.category === activeCategory);
+      ? posts
+      : posts.filter((p) => p.category === activeCategory);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 pt-8 sm:pt-12 pb-20">
@@ -163,13 +138,24 @@ export default function BoardPage() {
         transition={{ duration: 0.5 }}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6 sm:mb-8">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
-            <MessageSquareText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
+              <MessageSquareText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              게시판
+            </h1>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            게시판
-          </h1>
+          {user && (
+            <Link
+              href="/board/write"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm sm:text-base transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              글쓰기
+            </Link>
+          )}
         </div>
 
         {/* Tabs */}
@@ -181,44 +167,63 @@ export default function BoardPage() {
 
         {/* Post List */}
         <div className="mt-6 sm:mt-8 space-y-3">
-          {filtered.map((post, idx) => (
-            <motion.button
-              key={post.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.04 }}
-              className="w-full text-left bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-5 sm:p-6 hover:border-blue-200 hover:shadow-sm transition-all group flex items-center gap-4"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-                  <span
-                    className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-bold ${categoryColors[post.category] || categoryColors.all}`}
+          {loading
+            ? [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-3"
+                >
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-3/4 rounded-md" />
+                  <div className="flex gap-3">
+                    <Skeleton className="h-4 w-14 rounded-md" />
+                    <Skeleton className="h-4 w-20 rounded-md" />
+                  </div>
+                </div>
+              ))
+            : filtered.map((post, idx) => (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: idx * 0.04 }}
+                >
+                  <Link
+                    href={`/board/${post.id}`}
+                    className="block w-full text-left bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-5 sm:p-6 hover:border-blue-200 hover:shadow-sm transition-all group"
                   >
-                    {getCategoryLabel(post.category)}
-                  </span>
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                  {post.title}
-                </h3>
-                <div className="flex items-center gap-3 mt-1.5 sm:mt-2 text-sm sm:text-base text-slate-400 font-bold">
-                  <span>{post.author}</span>
-                  <span>·</span>
-                  <span>{post.date}</span>
-                  {post.commentCount > 0 && (
-                    <>
-                      <span>·</span>
-                      <span className="text-blue-500">
-                        댓글 {post.commentCount}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300 group-hover:text-blue-400 transition-colors shrink-0" />
-            </motion.button>
-          ))}
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                          <span
+                            className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-bold ${categoryColors[post.category] || categoryColors.all}`}
+                          >
+                            {getCategoryLabel(post.category || "all")}
+                          </span>
+                        </div>
+                        <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+                          {post.title || ""}
+                        </h3>
+                        <div className="flex items-center gap-3 mt-1.5 sm:mt-2 text-sm sm:text-base text-slate-400 font-bold">
+                          <span>{post.authorName || "익명"}</span>
+                          <span>·</span>
+                          <span>
+                            {post.createdAt
+                              ? format(
+                                  post.createdAt.toDate(),
+                                  "yyyy.MM.dd",
+                                )
+                              : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300 group-hover:text-blue-400 transition-colors shrink-0" />
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
 
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <div className="text-center py-16 text-xl font-bold text-slate-400">
               게시글이 없습니다.
             </div>
