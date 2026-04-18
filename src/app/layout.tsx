@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import TopNav from "@/components/TopNav";
 import "./globals.css";
 
@@ -29,6 +30,7 @@ export default function RootLayout({
         <TopNav />
         <main className="flex-1">{children}</main>
       </body>
+      <GoogleAnalytics gaId="G-4MWLQQQHRN" />
     </html>
   );
 }
