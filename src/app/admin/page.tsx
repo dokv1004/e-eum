@@ -13,13 +13,11 @@ import {
   Trash2,
   Clock,
   Newspaper,
+  Music,
+  ChevronRight,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface ContiItem {
-  title: string;
-  youtubeUrl: string;
-}
+import Link from "next/link";
 
 interface ServiceItem {
   name: string;
@@ -51,7 +49,6 @@ export default function AdminPage() {
   const [verse, setVerse] = useState("");
   const [reference, setReference] = useState("");
   const [youtubeInput, setYoutubeInput] = useState("");
-  const [conti, setConti] = useState<ContiItem[]>([]);
   const [services, setServices] = useState<ServiceItem[]>(DEFAULT_SERVICES);
   const [bulletinUrl, setBulletinUrl] = useState("");
   const [dataLoading, setDataLoading] = useState(true);
@@ -60,14 +57,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
-      router.replace("/");
-      return;
-    }
-    if (!isAdmin) {
-      alert("관리자 권한이 없습니다.");
-      router.replace("/");
-    }
+    if (!user) { router.replace("/"); return; }
+    if (!isAdmin) { alert("관리자 권한이 없습니다."); router.replace("/"); }
   }, [authLoading, user, isAdmin, router]);
 
   useEffect(() => {
@@ -83,13 +74,10 @@ export default function AdminPage() {
         setVerse(data.verse ?? "");
         setReference(data.reference ?? "");
         setYoutubeInput(data.youtubeId ?? "");
-        setConti(data.conti ?? []);
       }
       if (scheduleSnap.exists()) {
         const data = scheduleSnap.data();
-        if (data.services?.length) {
-          setServices(data.services);
-        }
+        if (data.services?.length) setServices(data.services);
       }
       if (bulletinSnap.exists()) {
         setBulletinUrl(bulletinSnap.data().url ?? "");
@@ -102,7 +90,6 @@ export default function AdminPage() {
     setSaving(true);
     setSaved(false);
     const youtubeId = extractYoutubeId(youtubeInput);
-    const cleanConti = conti.filter((c) => c.title.trim() !== "");
     const cleanServices = services.filter((s) => s.name.trim() !== "");
 
     await Promise.all([
@@ -110,7 +97,6 @@ export default function AdminPage() {
         verse,
         reference,
         youtubeId,
-        conti: cleanConti,
       }),
       setDoc(doc(db, "worship-schedule", "current"), {
         services: cleanServices,
@@ -121,28 +107,17 @@ export default function AdminPage() {
     ]);
 
     setYoutubeInput(youtubeId);
-    setConti(cleanConti);
     setServices(cleanServices);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
-  // ── 콘티 관리 ──
-  const addContiItem = () =>
-    setConti([...conti, { title: "", youtubeUrl: "" }]);
-  const updateContiItem = (i: number, field: keyof ContiItem, v: string) =>
-    setConti(conti.map((c, idx) => (idx === i ? { ...c, [field]: v } : c)));
-  const removeContiItem = (i: number) =>
-    setConti(conti.filter((_, idx) => idx !== i));
-
-  // ── 예배 시간 관리 ──
+  // 예배 시간 CRUD
   const addServiceItem = () =>
     setServices([...services, { name: "", time: "", day: "" }]);
   const updateServiceItem = (i: number, field: keyof ServiceItem, v: string) =>
-    setServices(
-      services.map((s, idx) => (idx === i ? { ...s, [field]: v } : s)),
-    );
+    setServices(services.map((s, idx) => (idx === i ? { ...s, [field]: v } : s)));
   const removeServiceItem = (i: number) =>
     setServices(services.filter((_, idx) => idx !== i));
 
@@ -177,6 +152,27 @@ export default function AdminPage() {
       </div>
 
       <div className="space-y-8">
+        {/* ── 주간 콘티 관리 바로가기 (최상단) ── */}
+        <Link
+          href="/admin/praise"
+          className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-white rounded-[2rem] border border-blue-100 shadow-sm p-6 sm:p-8 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
+              <Music className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                찬양 콘티 관리
+              </h2>
+              <p className="text-sm font-bold text-slate-400">
+                예배별 콘티 작성, 카테고리 관리, 캘린더 연동
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300 group-hover:text-blue-400 transition-colors" />
+        </Link>
+
         {/* ── 오늘의 말씀 + 유튜브 ── */}
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-10 space-y-6">
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -190,11 +186,9 @@ export default function AdminPage() {
           ) : (
             <>
               <div className="space-y-2">
-                <label className="text-base sm:text-lg font-bold text-slate-700">
-                  말씀 구절
-                </label>
+                <label className="text-base sm:text-lg font-bold text-slate-700">말씀 구절</label>
                 <textarea
-                  value={verse}
+                  value={verse || ""}
                   onChange={(e) => setVerse(e.target.value)}
                   rows={4}
                   placeholder="예: 내가 평생토록 여호와께 노래하며..."
@@ -202,24 +196,20 @@ export default function AdminPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-base sm:text-lg font-bold text-slate-700">
-                  성경 장절
-                </label>
+                <label className="text-base sm:text-lg font-bold text-slate-700">성경 장절</label>
                 <input
                   type="text"
-                  value={reference}
+                  value={reference || ""}
                   onChange={(e) => setReference(e.target.value)}
                   placeholder="예: (시편 104:33)"
                   className={inputClassLg}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-base sm:text-lg font-bold text-slate-700">
-                  이번 주 찬양 유튜브
-                </label>
+                <label className="text-base sm:text-lg font-bold text-slate-700">대표 찬양 유튜브</label>
                 <input
                   type="text"
-                  value={youtubeInput}
+                  value={youtubeInput || ""}
                   onChange={(e) => setYoutubeInput(e.target.value)}
                   placeholder="유튜브 링크 또는 영상 ID"
                   className={inputClassLg}
@@ -244,72 +234,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* ── 찬양 콘티 ── */}
-        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-10 space-y-6">
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            이번 주 찬양 콘티
-          </h2>
-          {dataLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-14 w-full rounded-2xl" />
-              <Skeleton className="h-14 w-full rounded-2xl" />
-            </div>
-          ) : (
-            <>
-              {conti.length === 0 && (
-                <p className="text-lg font-bold text-slate-400 text-center py-4">
-                  등록된 곡이 없습니다. 아래 버튼으로 추가하세요.
-                </p>
-              )}
-              <div className="space-y-4">
-                {conti.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-2 sm:gap-3 p-4 rounded-2xl bg-slate-50"
-                  >
-                    <span className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-black text-sm mt-1">
-                      {index + 1}
-                    </span>
-                    <div className="flex-1 space-y-2">
-                      <input
-                        type="text"
-                        value={item.title}
-                        onChange={(e) =>
-                          updateContiItem(index, "title", e.target.value)
-                        }
-                        placeholder="곡명 (예: Way Maker)"
-                        className={inputClass}
-                      />
-                      <input
-                        type="text"
-                        value={item.youtubeUrl || ""}
-                        onChange={(e) =>
-                          updateContiItem(index, "youtubeUrl", e.target.value)
-                        }
-                        placeholder="유튜브 링크 (선택사항)"
-                        className={inputClass}
-                      />
-                    </div>
-                    <button
-                      onClick={() => removeContiItem(index)}
-                      className="shrink-0 w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors mt-1"
-                      title="삭제"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={addContiItem}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 text-slate-500 hover:text-blue-600 font-bold text-lg transition-colors"
-              >
-                <Plus className="w-5 h-5" />곡 추가
-              </button>
-            </>
-          )}
-        </div>
-
         {/* ── 예배 시간 관리 ── */}
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-10 space-y-6">
           <div className="flex items-center gap-3">
@@ -327,63 +251,33 @@ export default function AdminPage() {
             <>
               <div className="space-y-4">
                 {services.map((svc, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-2 sm:gap-3 p-4 rounded-2xl bg-slate-50"
-                  >
+                  <div key={index} className="flex items-start gap-2 sm:gap-3 p-4 rounded-2xl bg-slate-50">
                     <div className="flex-1 space-y-2">
-                      <input
-                        type="text"
-                        value={svc.name}
-                        onChange={(e) =>
-                          updateServiceItem(index, "name", e.target.value)
-                        }
-                        placeholder="예배명 (예: 주일 대예배)"
-                        className={inputClass}
-                      />
+                      <input type="text" value={svc.name || ""} onChange={(e) => updateServiceItem(index, "name", e.target.value)}
+                        placeholder="예배명 (예: 주일 대예배)" className={inputClass} />
                       <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={svc.time}
-                          onChange={(e) =>
-                            updateServiceItem(index, "time", e.target.value)
-                          }
-                          placeholder="시간 (예: 오전 11:00)"
-                          className={inputClass}
-                        />
-                        <input
-                          type="text"
-                          value={svc.day}
-                          onChange={(e) =>
-                            updateServiceItem(index, "day", e.target.value)
-                          }
-                          placeholder="요일 (예: 매주 일요일)"
-                          className={inputClass}
-                        />
+                        <input type="text" value={svc.time || ""} onChange={(e) => updateServiceItem(index, "time", e.target.value)}
+                          placeholder="시간 (예: 오전 11:00)" className={inputClass} />
+                        <input type="text" value={svc.day || ""} onChange={(e) => updateServiceItem(index, "day", e.target.value)}
+                          placeholder="요일 (예: 매주 일요일)" className={inputClass} />
                       </div>
                     </div>
-                    <button
-                      onClick={() => removeServiceItem(index)}
-                      className="shrink-0 w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors mt-1"
-                      title="삭제"
-                    >
+                    <button onClick={() => removeServiceItem(index)}
+                      className="shrink-0 w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors mt-1">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
               </div>
-              <button
-                onClick={addServiceItem}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 text-slate-500 hover:text-blue-600 font-bold text-lg transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                예배 추가
+              <button onClick={addServiceItem}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 text-slate-500 hover:text-blue-600 font-bold text-lg transition-colors">
+                <Plus className="w-5 h-5" />예배 추가
               </button>
             </>
           )}
         </div>
 
-        {/* ── 이번 주 주보 관리 ── */}
+        {/* ── 주보 관리 ── */}
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-10 space-y-6">
           <div className="flex items-center gap-3">
             <Newspaper className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
@@ -396,16 +290,9 @@ export default function AdminPage() {
           ) : (
             <>
               <div className="space-y-2">
-                <label className="text-base sm:text-lg font-bold text-slate-700">
-                  주보 파일 URL
-                </label>
-                <input
-                  type="text"
-                  value={bulletinUrl}
-                  onChange={(e) => setBulletinUrl(e.target.value)}
-                  placeholder="Firebase Storage URL (.pdf, .jpg, .png)"
-                  className={inputClassLg}
-                />
+                <label className="text-base sm:text-lg font-bold text-slate-700">주보 파일 URL</label>
+                <input type="text" value={bulletinUrl || ""} onChange={(e) => setBulletinUrl(e.target.value)}
+                  placeholder="Firebase Storage URL (.pdf, .jpg, .png)" className={inputClassLg} />
                 <p className="text-sm font-bold text-slate-400">
                   Firebase Storage에서 복사한 파일 URL을 붙여넣으세요
                 </p>
@@ -415,17 +302,9 @@ export default function AdminPage() {
                   <p className="text-sm font-bold text-slate-500">미리보기</p>
                   {/\.(jpg|jpeg|png|webp)/i.test(bulletinUrl) ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={bulletinUrl}
-                      alt="주보 미리보기"
-                      className="w-full h-auto rounded-xl border border-slate-200"
-                    />
+                    <img src={bulletinUrl} alt="주보 미리보기" className="w-full h-auto rounded-xl border border-slate-200" />
                   ) : (
-                    <iframe
-                      src={bulletinUrl}
-                      title="주보 미리보기"
-                      className="w-full h-[400px] rounded-xl border border-slate-200"
-                    />
+                    <iframe src={bulletinUrl} title="주보 미리보기" className="w-full h-[400px] rounded-xl border border-slate-200" />
                   )}
                 </div>
               )}
@@ -436,23 +315,12 @@ export default function AdminPage() {
         {/* ── 저장 ── */}
         {!dataLoading && (
           <div className="space-y-4">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-black text-lg transition-colors"
-            >
-              {saving ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
+            <button onClick={handleSave} disabled={saving}
+              className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-black text-lg transition-colors">
+              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               {saving ? "저장 중..." : "전체 저장하기"}
             </button>
-            {saved && (
-              <p className="text-center text-lg font-bold text-green-600">
-                저장 완료! 메인 화면에 바로 반영됩니다.
-              </p>
-            )}
+            {saved && <p className="text-center text-lg font-bold text-green-600">저장 완료! 메인 화면에 바로 반영됩니다.</p>}
           </div>
         )}
       </div>

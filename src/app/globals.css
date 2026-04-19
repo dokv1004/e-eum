@@ -124,6 +124,48 @@ html, body {
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+/* FullCalendar 커스텀 스타일 */
+.fc {
+  --fc-border-color: #e2e8f0;
+  --fc-today-bg-color: #eff6ff;
+  --fc-page-bg-color: transparent;
+  font-family: var(--font-sans);
+}
+.fc .fc-toolbar-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+.fc .fc-button {
+  border-radius: 0.75rem !important;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+}
+.fc .fc-button-primary {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+.fc .fc-button-primary:hover {
+  background-color: #2563eb;
+}
+.fc .fc-daygrid-day-number {
+  font-weight: 700;
+  padding: 0.5rem;
+}
+.fc .fc-event {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+  margin: 1px 0;
+  cursor: pointer;
+}
+.fc .fc-daygrid-event-dot {
+  display: none;
+}
+.fc .fc-day-sun .fc-daygrid-day-number { color: #ef4444; }
+.fc .fc-day-sat .fc-daygrid-day-number { color: #3b82f6; }
+.fc .fc-col-header-cell-cushion { font-weight: 900; font-size: 0.875rem; }
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
