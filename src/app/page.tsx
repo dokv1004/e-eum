@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Clock, Music, ListMusic, Play } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   doc,
   onSnapshot,
@@ -26,7 +26,6 @@ interface ServiceItem {
 interface DailyWord {
   verse: string;
   reference: string;
-  youtubeId?: string;
 }
 
 interface SetlistSong {
@@ -48,6 +47,12 @@ interface ServiceCategory {
   color: string;
 }
 
+interface LinkedSong {
+  title: string;
+  link: string;
+  youtubeId: string;
+}
+
 const DEFAULT_SERVICES: ServiceItem[] = [
   { name: "주일 대예배", time: "오전 11:00", day: "매주 일요일" },
   { name: "수요 예배", time: "오후 7:30", day: "매주 수요일" },
@@ -59,6 +64,13 @@ function getTodayKST(): string {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
+}
+
+function extractYoutubeId(url: string): string {
+  const match = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?.*v=|embed\/|v\/|shorts\/))([^\s&?#]+)/,
+  );
+  return match?.[1] ?? "";
 }
 
 export default function Home() {
@@ -75,6 +87,10 @@ export default function Home() {
   const [setlistsLoading, setSetlistsLoading] = useState(true);
   const [activeSlide, setActiveSlide] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 자동 롤링 대표 찬양
+  const [linkedSongs, setLinkedSongs] = useState<LinkedSong[]>([]);
+  const [activeSongIdx, setActiveSongIdx] = useState(0);
 
   // 오늘의 말씀
   useEffect(() => {
@@ -114,7 +130,7 @@ export default function Home() {
     })();
   }, []);
 
-  // 찬양 콘티: 오늘 이후 가장 가까운 날짜의 모든 콘티
+  // 찬양 콘티 + 링크 있는 곡 추출
   useEffect(() => {
     (async () => {
       const today = getTodayKST();
@@ -127,24 +143,45 @@ export default function Home() {
 
       if (snap.empty) {
         setSetlists([]);
+        setLinkedSongs([]);
         setSetlistsLoading(false);
         return;
       }
 
-      // 가장 가까운 날짜 찾기
       const nearestDate = snap.docs[0].data().date as string;
-
-      // 같은 날짜의 모든 콘티 그룹화
       const grouped = snap.docs
         .filter((d) => d.data().date === nearestDate)
         .map((d) => ({ id: d.id, ...d.data() } as PraiseSetlist));
 
       setSetlists(grouped);
+
+      // 모든 콘티에서 유튜브 링크가 있는 곡만 추출
+      const songs: LinkedSong[] = [];
+      for (const setlist of grouped) {
+        for (const song of setlist.songs) {
+          if (song.link?.trim()) {
+            const ytId = extractYoutubeId(song.link);
+            if (ytId) {
+              songs.push({ title: song.title, link: song.link, youtubeId: ytId });
+            }
+          }
+        }
+      }
+      setLinkedSongs(songs);
       setSetlistsLoading(false);
     })();
   }, []);
 
-  // 스크롤 위치에 따른 dot indicator 업데이트
+  // 7초 자동 롤링
+  useEffect(() => {
+    if (linkedSongs.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveSongIdx((prev) => (prev + 1) % linkedSongs.length);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [linkedSongs.length]);
+
+  // 슬라이드 dot
   const handleScroll = () => {
     if (!scrollRef.current || setlists.length <= 1) return;
     const el = scrollRef.current;
@@ -160,6 +197,7 @@ export default function Home() {
   };
 
   const card = "w-full max-w-md mx-auto lg:max-w-none";
+  const currentSong = linkedSongs[activeSongIdx];
 
   return (
     <div className="pb-20 selection:bg-blue-100 selection:text-blue-900">
@@ -172,37 +210,67 @@ export default function Home() {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="space-y-8 order-3 lg:order-none w-full"
           >
-            {/* 이번 주 찬양 미리듣기 */}
-            <div
-              className={`${card} bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col items-center`}
-            >
-              <div className="w-full flex flex-col items-center justify-center mb-5 sm:mb-6">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center mb-3">
-                  <Music className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            {/* ===== 대표 찬양 자동 롤링 ===== */}
+            {setlistsLoading ? (
+              <div className={`${card} bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-8`}>
+                <div className="flex flex-col items-center mb-5">
+                  <Skeleton className="w-12 h-12 rounded-2xl mb-3" />
+                  <Skeleton className="h-7 w-36 rounded-md" />
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  이번 주 찬양
-                </h2>
-              </div>
-              {wordLoading ? (
                 <Skeleton className="w-full aspect-video rounded-xl" />
-              ) : dailyWord?.youtubeId ? (
-                <iframe
-                  className="w-full aspect-video rounded-xl shadow-lg"
-                  src={`https://www.youtube.com/embed/${dailyWord.youtubeId}`}
-                  title="이번 주 찬양"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <div className="w-full flex flex-col items-center justify-center py-10 sm:py-14 text-center">
-                  <Music className="w-10 h-10 sm:w-12 sm:h-12 text-slate-200 mb-4" />
-                  <p className="text-lg sm:text-xl font-bold text-slate-400 break-keep">
-                    이번 주 찬양 플레이리스트가 곧 업데이트됩니다 🎵
-                  </p>
+              </div>
+            ) : linkedSongs.length > 0 && currentSong ? (
+              <div className={`${card} bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-8`}>
+                <div className="flex flex-col items-center mb-5 sm:mb-6">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center mb-3">
+                    <Music className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    이번 주 찬양
+                  </h2>
                 </div>
-              )}
-            </div>
+
+                {/* 유튜브 플레이어 — 페이드 전환 */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentSong.youtubeId}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <iframe
+                      className="w-full aspect-video rounded-xl shadow-lg"
+                      src={`https://www.youtube.com/embed/${currentSong.youtubeId}`}
+                      title={currentSong.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                    <p className="text-center text-base sm:text-lg font-black text-slate-700 mt-3 truncate">
+                      {currentSong.title}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* 곡 선택 dot / 버튼 */}
+                {linkedSongs.length > 1 && (
+                  <div className="flex justify-center gap-2 mt-4">
+                    {linkedSongs.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setActiveSongIdx(i)}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          activeSongIdx === i
+                            ? "w-7 bg-blue-500"
+                            : "w-2 bg-slate-300 hover:bg-slate-400"
+                        }`}
+                        title={s.title}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             {/* ===== 찬양 콘티 슬라이드 ===== */}
             <div
@@ -235,7 +303,6 @@ export default function Home() {
                 </div>
               ) : setlists.length > 0 ? (
                 <>
-                  {/* 슬라이더 */}
                   <div
                     ref={scrollRef}
                     onScroll={handleScroll}
@@ -244,9 +311,8 @@ export default function Home() {
                     {setlists.map((setlist) => (
                       <div
                         key={setlist.id}
-                        className="w-full shrink-0 snap-start p-6 sm:p-8 pt-4 space-y-3"
+                        className="w-full shrink-0 snap-center p-6 sm:p-8 pt-4 space-y-3"
                       >
-                        {/* 예배 종류 배지 */}
                         <div className="flex items-center justify-center mb-2">
                           <span
                             className="px-3 py-1 rounded-full text-sm font-bold"
@@ -292,16 +358,15 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {/* Dot Indicators */}
                   {setlists.length > 1 && (
-                    <div className="flex justify-center gap-2 pb-6 pt-2">
+                    <div className="flex justify-center gap-2 py-5 border-t border-slate-100 mx-6 sm:mx-8">
                       {setlists.map((_, i) => (
                         <button
                           key={i}
                           onClick={() => {
                             scrollRef.current?.children[i]?.scrollIntoView({
                               behavior: "smooth",
-                              inline: "start",
+                              inline: "center",
                               block: "nearest",
                             });
                           }}

@@ -32,23 +32,12 @@ const DEFAULT_SERVICES: ServiceItem[] = [
   { name: "새벽 기도회", time: "오전 5:30", day: "월~토요일" },
 ];
 
-function extractYoutubeId(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return "";
-  if (/^[\w-]{11}$/.test(trimmed)) return trimmed;
-  const match = trimmed.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:watch\?.*v=|embed\/|v\/|shorts\/))([^\s&?#]+)/,
-  );
-  return match?.[1] ?? trimmed;
-}
-
 export default function AdminPage() {
   const { user, loading: authLoading, isAdmin } = useAuth();
   const router = useRouter();
 
   const [verse, setVerse] = useState("");
   const [reference, setReference] = useState("");
-  const [youtubeInput, setYoutubeInput] = useState("");
   const [services, setServices] = useState<ServiceItem[]>(DEFAULT_SERVICES);
   const [bulletinUrl, setBulletinUrl] = useState("");
   const [dataLoading, setDataLoading] = useState(true);
@@ -73,7 +62,6 @@ export default function AdminPage() {
         const data = wordSnap.data();
         setVerse(data.verse ?? "");
         setReference(data.reference ?? "");
-        setYoutubeInput(data.youtubeId ?? "");
       }
       if (scheduleSnap.exists()) {
         const data = scheduleSnap.data();
@@ -89,14 +77,12 @@ export default function AdminPage() {
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
-    const youtubeId = extractYoutubeId(youtubeInput);
     const cleanServices = services.filter((s) => s.name.trim() !== "");
 
     await Promise.all([
       setDoc(doc(db, "daily-word", "current"), {
         verse,
         reference,
-        youtubeId,
       }),
       setDoc(doc(db, "worship-schedule", "current"), {
         services: cleanServices,
@@ -106,7 +92,6 @@ export default function AdminPage() {
       }),
     ]);
 
-    setYoutubeInput(youtubeId);
     setServices(cleanServices);
     setSaving(false);
     setSaved(true);
@@ -133,7 +118,6 @@ export default function AdminPage() {
     );
   }
 
-  const previewId = extractYoutubeId(youtubeInput);
   const inputClass =
     "w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-base sm:text-lg font-bold text-slate-900 placeholder:text-slate-300 focus:border-blue-400 focus:outline-none transition-colors";
   const inputClassLg =
@@ -205,31 +189,6 @@ export default function AdminPage() {
                   className={inputClassLg}
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-base sm:text-lg font-bold text-slate-700">대표 찬양 유튜브</label>
-                <input
-                  type="text"
-                  value={youtubeInput || ""}
-                  onChange={(e) => setYoutubeInput(e.target.value)}
-                  placeholder="유튜브 링크 또는 영상 ID"
-                  className={inputClassLg}
-                />
-                <p className="text-sm font-bold text-slate-400">
-                  전체 링크, 공유 링크, 영상 ID 모두 가능합니다
-                </p>
-              </div>
-              {previewId && (
-                <div className="space-y-2">
-                  <p className="text-sm font-bold text-slate-500">미리보기</p>
-                  <iframe
-                    className="w-full aspect-video rounded-xl"
-                    src={`https://www.youtube.com/embed/${previewId}`}
-                    title="미리보기"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              )}
             </>
           )}
         </div>
