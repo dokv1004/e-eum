@@ -15,12 +15,14 @@ import {
   LogIn,
   LogOut,
   ShieldCheck,
+  Phone,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
+import PhoneLogin from "@/components/PhoneLogin";
 
 const publicNavItems = [
   { href: "/", label: "대시보드", icon: LayoutDashboard },
@@ -37,6 +39,7 @@ export default function TopNav() {
   const pathname = usePathname();
   const { user, loading, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showPhoneLogin, setShowPhoneLogin] = useState(false);
 
   const currentDate = format(new Date(), "yyyy년 M월 d일 (EEEE)", {
     locale: ko,
@@ -156,13 +159,22 @@ export default function TopNav() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={handleLogin}
-                  className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors"
-                >
-                  <LogIn className="w-4 h-4" />
-                  구글 로그인
-                </button>
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    onClick={handleLogin}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    구글 로그인
+                  </button>
+                  <button
+                    onClick={() => setShowPhoneLogin(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors"
+                  >
+                    <Phone className="w-4 h-4" />
+                    전화번호
+                  </button>
+                </div>
               )}
             </>
           )}
@@ -259,20 +271,35 @@ export default function TopNav() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => {
-                    handleLogin();
-                    setMobileOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-lg text-blue-600 hover:bg-blue-50 transition-colors"
-                >
-                  <LogIn className="w-5 h-5" />
-                  구글 로그인
-                </button>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      handleLogin();
+                      setMobileOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    구글 로그인
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowPhoneLogin(true);
+                      setMobileOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-lg text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    <Phone className="w-5 h-5" />
+                    전화번호 로그인
+                  </button>
+                </div>
               )}
             </div>
           )}
         </div>
+      )}
+      {showPhoneLogin && (
+        <PhoneLogin onClose={() => setShowPhoneLogin(false)} />
       )}
     </nav>
   );
