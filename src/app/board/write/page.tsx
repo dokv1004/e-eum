@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useReducer } from "react";
 import { useRouter } from "next/navigation";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TiptapImage from "@tiptap/extension-image";
 import TiptapLink from "@tiptap/extension-link";
@@ -25,6 +25,125 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function ToolbarButton({
+  icon: Icon,
+  action,
+  active,
+  title,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  action: () => void;
+  active: boolean;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        action();
+      }}
+      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center transition-colors ${
+        active
+          ? "bg-blue-100 text-blue-700"
+          : "text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+    </button>
+  );
+}
+
+function EditorToolbar({
+  editor,
+  uploading,
+  onImage,
+  onFile,
+  onLink,
+}: {
+  editor: Editor;
+  uploading: boolean;
+  onImage: () => void;
+  onFile: () => void;
+  onLink: () => void;
+}) {
+  return (
+    <div className="flex items-center flex-wrap gap-0.5 px-3 sm:px-4 py-2 border-b border-slate-100 bg-slate-50/80">
+      <ToolbarButton
+        icon={Bold}
+        action={() => editor.chain().focus().toggleBold().run()}
+        active={editor.isActive("bold")}
+        title="굵게"
+      />
+      <ToolbarButton
+        icon={Italic}
+        action={() => editor.chain().focus().toggleItalic().run()}
+        active={editor.isActive("italic")}
+        title="기울임"
+      />
+
+      <div className="w-px h-5 bg-slate-200 mx-1" />
+
+      <ToolbarButton
+        icon={List}
+        action={() => editor.chain().focus().toggleBulletList().run()}
+        active={editor.isActive("bulletList")}
+        title="목록"
+      />
+      <ToolbarButton
+        icon={ListOrdered}
+        action={() => editor.chain().focus().toggleOrderedList().run()}
+        active={editor.isActive("orderedList")}
+        title="번호 목록"
+      />
+
+      <div className="w-px h-5 bg-slate-200 mx-1" />
+
+      <ToolbarButton
+        icon={ImagePlus}
+        action={onImage}
+        active={false}
+        title="이미지"
+      />
+      <ToolbarButton
+        icon={Paperclip}
+        action={onFile}
+        active={false}
+        title="파일 첨부"
+      />
+      <ToolbarButton
+        icon={Link2}
+        action={onLink}
+        active={editor.isActive("link")}
+        title="링크"
+      />
+
+      <div className="w-px h-5 bg-slate-200 mx-1" />
+
+      <ToolbarButton
+        icon={Undo2}
+        action={() => editor.chain().focus().undo().run()}
+        active={false}
+        title="실행취소"
+      />
+      <ToolbarButton
+        icon={Redo2}
+        action={() => editor.chain().focus().redo().run()}
+        active={false}
+        title="다시실행"
+      />
+
+      {uploading && (
+        <div className="flex items-center gap-1.5 ml-auto text-sm font-bold text-blue-500">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          업로드 중...
+        </div>
+      )}
+    </div>
+  );
+}
+
 const categories = [
   { id: "eagle", label: "이글", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { id: "wingwing", label: "윙윙", color: "bg-green-100 text-green-700 border-green-200" },
@@ -39,6 +158,7 @@ export default function WritePage() {
   const [category, setCategory] = useState("eagle");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [, forceRender] = useReducer((x: number) => x + 1, 0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -69,6 +189,9 @@ export default function WritePage() {
     ],
     content: "",
     immediatelyRender: false,
+    onTransaction() {
+      forceRender();
+    },
     editorProps: {
       attributes: {
         class:
@@ -187,68 +310,6 @@ export default function WritePage() {
     );
   }
 
-  const toolbarButtons = editor
-    ? [
-        {
-          icon: Bold,
-          action: () => editor.chain().focus().toggleBold().run(),
-          active: editor.isActive("bold"),
-          title: "굵게",
-        },
-        {
-          icon: Italic,
-          action: () => editor.chain().focus().toggleItalic().run(),
-          active: editor.isActive("italic"),
-          title: "기울임",
-        },
-        { divider: true },
-        {
-          icon: List,
-          action: () => editor.chain().focus().toggleBulletList().run(),
-          active: editor.isActive("bulletList"),
-          title: "목록",
-        },
-        {
-          icon: ListOrdered,
-          action: () => editor.chain().focus().toggleOrderedList().run(),
-          active: editor.isActive("orderedList"),
-          title: "번호 목록",
-        },
-        { divider: true },
-        {
-          icon: ImagePlus,
-          action: handleImageButton,
-          active: false,
-          title: "이미지",
-        },
-        {
-          icon: Paperclip,
-          action: handleFileButton,
-          active: false,
-          title: "파일 첨부",
-        },
-        {
-          icon: Link2,
-          action: handleLinkButton,
-          active: editor.isActive("link"),
-          title: "링크",
-        },
-        { divider: true },
-        {
-          icon: Undo2,
-          action: () => editor.chain().focus().undo().run(),
-          active: false,
-          title: "실행취소",
-        },
-        {
-          icon: Redo2,
-          action: () => editor.chain().focus().redo().run(),
-          active: false,
-          title: "다시실행",
-        },
-      ]
-    : [];
-
   return (
     <div className="max-w-3xl mx-auto px-5 sm:px-8 pt-8 sm:pt-12 pb-20">
       <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-6 sm:mb-8">
@@ -294,38 +355,13 @@ export default function WritePage() {
 
         {/* 에디터 툴바 */}
         {editor && (
-          <div className="flex items-center flex-wrap gap-0.5 px-3 sm:px-4 py-2 border-b border-slate-100 bg-slate-50/80">
-            {toolbarButtons.map((btn, i) =>
-              "divider" in btn ? (
-                <div
-                  key={`d-${i}`}
-                  className="w-px h-5 bg-slate-200 mx-1"
-                />
-              ) : (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={btn.action}
-                  title={btn.title}
-                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center transition-colors ${
-                    btn.active
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-slate-500 hover:bg-slate-200 hover:text-slate-700"
-                  }`}
-                >
-                  <btn.icon className="w-4 h-4" />
-                </button>
-              ),
-            )}
-
-            {/* 업로드 중 표시 */}
-            {uploading && (
-              <div className="flex items-center gap-1.5 ml-auto text-sm font-bold text-blue-500">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                업로드 중...
-              </div>
-            )}
-          </div>
+          <EditorToolbar
+            editor={editor}
+            uploading={uploading}
+            onImage={handleImageButton}
+            onFile={handleFileButton}
+            onLink={handleLinkButton}
+          />
         )}
 
         {/* 에디터 본문 */}
