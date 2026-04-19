@@ -244,7 +244,7 @@ export default function Home() {
                     {setlists.map((setlist) => (
                       <div
                         key={setlist.id}
-                        className="w-full shrink-0 snap-center p-6 sm:p-8 pt-4 space-y-3"
+                        className="w-full shrink-0 snap-start p-6 sm:p-8 pt-4 space-y-3"
                       >
                         {/* 예배 종류 배지 */}
                         <div className="flex items-center justify-center mb-2">
@@ -294,21 +294,21 @@ export default function Home() {
 
                   {/* Dot Indicators */}
                   {setlists.length > 1 && (
-                    <div className="flex justify-center gap-1.5 pb-5">
+                    <div className="flex justify-center gap-2 pb-6 pt-2">
                       {setlists.map((_, i) => (
                         <button
                           key={i}
                           onClick={() => {
                             scrollRef.current?.children[i]?.scrollIntoView({
                               behavior: "smooth",
-                              inline: "center",
+                              inline: "start",
                               block: "nearest",
                             });
                           }}
-                          className={`h-2 rounded-full transition-all ${
+                          className={`h-2 rounded-full transition-all duration-300 ${
                             activeSlide === i
-                              ? "w-6 bg-blue-500"
-                              : "w-2 bg-slate-200"
+                              ? "w-7 bg-blue-500"
+                              : "w-2 bg-slate-300 hover:bg-slate-400"
                           }`}
                         />
                       ))}
