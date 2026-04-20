@@ -57,7 +57,7 @@ function getTodayKST(): string {
 }
 
 export default function AdminPraisePage() {
-  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { user, loading: authLoading, isAdmin, role } = useAuth();
   const router = useRouter();
 
   // 카테고리 관리
@@ -79,12 +79,14 @@ export default function AdminPraisePage() {
   const [saved, setSaved] = useState(false);
   const [loadingPrev, setLoadingPrev] = useState(false);
 
-  // 접근 제어
+  // 접근 제어: admin 또는 praise_team 역할 허용
+  const canManage = isAdmin || role === "praise_team";
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.replace("/"); return; }
-    if (!isAdmin) { alert("관리자 권한이 없습니다."); router.replace("/"); }
-  }, [authLoading, user, isAdmin, router]);
+    if (!canManage) { alert("찬양팀 권한이 필요합니다."); router.replace("/praise"); }
+  }, [authLoading, user, canManage, router]);
 
   // 카테고리 로드
   const fetchCategories = async () => {
@@ -102,7 +104,7 @@ export default function AdminPraisePage() {
   };
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canManage) return;
     fetchCategories();
   }, [isAdmin]);
 
@@ -131,7 +133,7 @@ export default function AdminPraisePage() {
 
   // 날짜 + 예배 종류가 바뀌면 기존 데이터 로드
   useEffect(() => {
-    if (!isAdmin || !selectedDate || !serviceType) return;
+    if (!canManage || !selectedDate || !serviceType) return;
     (async () => {
       setDataLoading(true);
       setEditingDocId(null);
@@ -226,7 +228,7 @@ export default function AdminPraisePage() {
     } catch { return dateStr; }
   };
 
-  if (authLoading || !isAdmin) {
+  if (authLoading || !canManage) {
     return (
       <div className="max-w-2xl mx-auto px-5 sm:px-8 pt-8 sm:pt-12 pb-20">
         <Skeleton className="h-10 w-40 rounded-lg mb-8" />
@@ -240,8 +242,8 @@ export default function AdminPraisePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-5 sm:px-8 pt-8 sm:pt-12 pb-20">
-      <Link href="/admin" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 font-bold mb-6 transition-colors">
-        <ArrowLeft className="w-4 h-4" />관리자
+      <Link href="/praise" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 font-bold mb-6 transition-colors">
+        <ArrowLeft className="w-4 h-4" />찬양팀
       </Link>
 
       <div className="flex items-center justify-between mb-6 sm:mb-8">

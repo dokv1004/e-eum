@@ -13,8 +13,6 @@ import {
   Trash2,
   Clock,
   Newspaper,
-  Music,
-  ChevronRight,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
@@ -136,27 +134,6 @@ export default function AdminPage() {
       </div>
 
       <div className="space-y-8">
-        {/* ── 주간 콘티 관리 바로가기 (최상단) ── */}
-        <Link
-          href="/admin/praise"
-          className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-white rounded-[2rem] border border-blue-100 shadow-sm p-6 sm:p-8 hover:shadow-md transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
-              <Music className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                찬양 콘티 관리
-              </h2>
-              <p className="text-sm font-bold text-slate-400">
-                예배별 콘티 작성, 카테고리 관리, 캘린더 연동
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300 group-hover:text-blue-400 transition-colors" />
-        </Link>
-
         {/* ── 오늘의 말씀 + 유튜브 ── */}
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-10 space-y-6">
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
