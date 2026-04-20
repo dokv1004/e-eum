@@ -202,13 +202,13 @@ export default function Home() {
   return (
     <div className="pb-20 selection:bg-blue-100 selection:text-blue-900">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-8 sm:pt-12">
-        <div className="flex flex-col lg:grid lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           {/* ===== Left Column ===== */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="space-y-8 order-3 lg:order-none w-full"
+            className="space-y-8 order-3 lg:order-none lg:col-span-2 w-full min-w-0"
           >
             {/* ===== 대표 찬양 자동 롤링 ===== */}
             {setlistsLoading ? (
@@ -240,7 +240,7 @@ export default function Home() {
                     transition={{ duration: 0.5 }}
                   >
                     <iframe
-                      className="w-full aspect-video rounded-xl shadow-lg"
+                      className="w-full aspect-video rounded-2xl shadow-lg"
                       src={`https://www.youtube.com/embed/${currentSong.youtubeId}`}
                       title={currentSong.title}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -396,11 +396,11 @@ export default function Home() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-            className="space-y-8 w-full contents lg:block lg:space-y-8"
+            className="lg:col-span-1 flex flex-col gap-6 w-full min-w-0"
           >
             {/* 오늘의 말씀 */}
             <div
-              className={`${card} order-1 lg:order-none bg-gradient-to-br from-blue-50 to-white rounded-[2rem] p-8 sm:p-12 border border-blue-100 shadow-sm relative overflow-hidden`}
+              className="w-full bg-gradient-to-br from-blue-50 to-white rounded-[2rem] p-5 sm:p-8 border border-blue-100 shadow-sm relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
                 <svg className="w-36 h-36 sm:w-48 sm:h-48 text-blue-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
@@ -420,10 +420,10 @@ export default function Home() {
                   </>
                 ) : dailyWord ? (
                   <>
-                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 leading-relaxed break-keep tracking-tight">
+                    <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-relaxed break-keep tracking-tight">
                       {dailyWord.verse}
                     </h2>
-                    <p className="text-lg sm:text-xl font-bold text-blue-600">
+                    <p className="text-base sm:text-lg font-bold text-blue-600">
                       {dailyWord.reference}
                     </p>
                   </>
@@ -437,7 +437,7 @@ export default function Home() {
 
             {/* 예배 시간 안내 */}
             <div
-              className={`${card} order-2 lg:order-none bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col items-center justify-center text-center`}
+              className="w-full bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col items-center justify-center text-center"
             >
               <div className="w-full flex flex-col items-center justify-center mb-5 sm:mb-6">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 flex items-center justify-center mb-3">
