@@ -6,6 +6,8 @@ import {
   getDocs,
   addDoc,
   doc,
+  getDoc,
+  setDoc,
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
@@ -83,6 +85,15 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 const SCHEDULE_DOT_COLOR = "#f97316"; // orange-500
+const RECURRING_DOT_COLOR = "#8b5cf6"; // violet-500
+
+interface RecurringService {
+  name: string;
+  time: string;
+  day: string;
+  dayNum: number; // 0=일~6=토, 7=매일
+  canceled_dates?: string[];
+}
 
 // 30분 단위 시간 옵션 (오전 06:00 ~ 오후 11:30)
 const TIME_OPTIONS: { value: string; label: string }[] = [
@@ -120,6 +131,9 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [deleting, setDeleting] = useState(false);
 
+  // 반복 예배 일정
+  const [recurringServices, setRecurringServices] = useState<RecurringService[]>([]);
+
   // 일정 추가 모달
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -146,12 +160,16 @@ export default function CalendarPage() {
 
   // 데이터 패칭
   const fetchAll = async () => {
-    const [setlistSnap, scheduleSnap] = await Promise.all([
+    const [setlistSnap, scheduleSnap, worshipSnap] = await Promise.all([
       getDocs(collection(db, "praise_setlists")),
       getDocs(collection(db, "church_schedules")),
+      getDoc(doc(db, "worship-schedule", "current")),
     ]);
     setSetlists(setlistSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as PraiseSetlist[]);
     setSchedules(scheduleSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as ChurchSchedule[]);
+    if (worshipSnap.exists() && worshipSnap.data().services?.length) {
+      setRecurringServices(worshipSnap.data().services as RecurringService[]);
+    }
     setLoading(false);
   };
 
@@ -223,13 +241,54 @@ export default function CalendarPage() {
     return idx === -1 ? CATEGORY_ORDER.length : idx;
   };
 
+  // 특정 날짜에 해당하는 반복 예배 일정을 동적으로 생성
+  const getRecurringForDate = (date: Date): (ChurchSchedule & { _recurringIdx?: number })[] => {
+    const dayOfWeek = date.getDay();
+    const dateStr = format(date, "yyyy-MM-dd");
+    return recurringServices
+      .map((svc, idx) => ({ ...svc, _origIdx: idx }))
+      .filter((svc) =>
+        (svc.dayNum === dayOfWeek || svc.dayNum === 7) &&
+        !(svc.canceled_dates ?? []).includes(dateStr) // 예외 날짜 제외
+      )
+      .map((svc) => ({
+        id: `recurring-${dateStr}-${svc._origIdx}`,
+        date: dateStr,
+        title: svc.name,
+        time: svc.time,
+        description: svc.day,
+        _recurringIdx: svc._origIdx, // Firestore 배열 인덱스 (제외 시 사용)
+      } as ChurchSchedule & { _recurringIdx?: number }));
+  };
+
+  // 정기 예배 특정 날짜 제외
+  const handleCancelRecurring = async (recurringIdx: number, dateStr: string) => {
+    if (!confirm("이 날짜의 정기 예배를 취소(제외)하시겠습니까?")) return;
+    setDeleting(true);
+    // 현재 services 배열을 가져와서 해당 인덱스의 canceled_dates에 날짜 추가
+    const snap = await getDoc(doc(db, "worship-schedule", "current"));
+    if (snap.exists()) {
+      const services = snap.data().services as RecurringService[];
+      if (services[recurringIdx]) {
+        const existing = services[recurringIdx].canceled_dates ?? [];
+        if (!existing.includes(dateStr)) {
+          services[recurringIdx].canceled_dates = [...existing, dateStr];
+          await setDoc(doc(db, "worship-schedule", "current"), { services });
+        }
+      }
+    }
+    await fetchAll();
+    setDeleting(false);
+  };
+
   // 날짜별 데이터 (정렬 포함)
   const getDataForDate = (date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
 
-    // 일반 일정: 시간 있는 것 → 시간 오름차순, 시간 없는 것(종일) → 맨 뒤
-    const sortedSchedules = schedules
-      .filter((s) => s.date === dateStr)
+    // 일반 일정 (DB) + 반복 예배 일정 (동적 생성) 병합 후 시간순 정렬
+    const manualSchedules = schedules.filter((s) => s.date === dateStr);
+    const recurringSchedules = getRecurringForDate(date);
+    const allSchedules = [...manualSchedules, ...recurringSchedules]
       .sort((a, b) => {
         const timeDiff = parseTimeToMinutes(a.time || "") - parseTimeToMinutes(b.time || "");
         if (timeDiff !== 0) return timeDiff;
@@ -242,17 +301,22 @@ export default function CalendarPage() {
       .sort((a, b) => getCategoryPriority(a.serviceType || "") - getCategoryPriority(b.serviceType || ""));
 
     return {
-      schedules: sortedSchedules,
+      schedules: allSchedules,
       setlists: sortedSetlists,
     };
   };
 
-  // Dot 색상 배열 (콘티 + 일정 합산)
+  // Dot 색상 배열 (반복 예배 + 일반 일정 + 콘티 합산)
   const getDotsForDate = (date: Date): string[] => {
     const { setlists: sl, schedules: sc } = getDataForDate(date);
     const dots: string[] = [];
+    // 일정 (반복 예배는 보라, 일반은 주황)
+    sc.forEach((s) => {
+      const isRecurring = s.id.startsWith("recurring-");
+      dots.push(isRecurring ? RECURRING_DOT_COLOR : SCHEDULE_DOT_COLOR);
+    });
+    // 콘티
     sl.forEach((s) => dots.push(getServiceColor(s.serviceType || "")));
-    sc.forEach(() => dots.push(SCHEDULE_DOT_COLOR));
     return dots.slice(0, 4);
   };
 
@@ -343,12 +407,15 @@ export default function CalendarPage() {
               </div>
 
               {/* 범례 */}
-              <div className="flex items-center justify-center gap-4 mt-4 text-xs font-bold text-slate-400">
+              <div className="flex items-center justify-center gap-3 mt-4 text-xs font-bold text-slate-400">
                 <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />찬양 콘티
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: RECURRING_DOT_COLOR }} />예배
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SCHEDULE_DOT_COLOR }} />교회 일정
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SCHEDULE_DOT_COLOR }} />일정
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />콘티
                 </div>
               </div>
             </>
@@ -425,18 +492,29 @@ export default function CalendarPage() {
 
           <div className="space-y-4">
             {/* 일반 교회 일정 */}
-            {selectedData.schedules.map((sched) => (
+            {selectedData.schedules.map((sched) => {
+              const isRecurring = sched.id.startsWith("recurring-");
+              const recurringIdx = (sched as ChurchSchedule & { _recurringIdx?: number })._recurringIdx;
+              return (
               <div key={sched.id}
                 className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-5 sm:p-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: SCHEDULE_DOT_COLOR }} />
+                  <div className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: isRecurring ? RECURRING_DOT_COLOR : SCHEDULE_DOT_COLOR }} />
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-lg font-black text-slate-900 truncate">
-                      {sched.title || ""}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-lg font-black text-slate-900 truncate">
+                        {sched.title || ""}
+                      </h4>
+                      {isRecurring && (
+                        <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: RECURRING_DOT_COLOR + "15", color: RECURRING_DOT_COLOR }}>
+                          정기
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       {sched.time && (
-                        <span className="flex items-center gap-1 text-sm font-bold text-orange-600">
+                        <span className={`flex items-center gap-1 text-sm font-bold ${isRecurring ? "text-violet-600" : "text-orange-600"}`}>
                           <Clock className="w-3 h-3" />{sched.time}
                         </span>
                       )}
@@ -445,15 +523,27 @@ export default function CalendarPage() {
                       )}
                     </div>
                   </div>
-                  {isAdmin && (
+                  {isAdmin && !isRecurring && (
                     <button onClick={() => handleDeleteSchedule(sched.id)} disabled={deleting}
-                      className="shrink-0 w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors disabled:opacity-50">
+                      className="shrink-0 w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                      title="일정 삭제">
                       {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
+                  {isAdmin && isRecurring && recurringIdx !== undefined && (
+                    <button
+                      onClick={() => handleCancelRecurring(recurringIdx, sched.date)}
+                      disabled={deleting}
+                      className="shrink-0 w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                      title="이 날짜만 제외"
+                    >
+                      {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
                     </button>
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* 찬양 콘티 */}
             {selectedData.setlists.map((setlist) => (

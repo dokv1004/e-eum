@@ -21,13 +21,39 @@ interface ServiceItem {
   name: string;
   time: string;
   day: string;
+  dayNum: number; // 0=일, 1=월, ..., 6=토, 7=매일
+  canceled_dates?: string[]; // 예외 날짜 ["2026-04-26", ...]
 }
 
+const DAY_OPTIONS = [
+  { value: 0, label: "매주 일요일" },
+  { value: 1, label: "매주 월요일" },
+  { value: 2, label: "매주 화요일" },
+  { value: 3, label: "매주 수요일" },
+  { value: 4, label: "매주 목요일" },
+  { value: 5, label: "매주 금요일" },
+  { value: 6, label: "매주 토요일" },
+  { value: 7, label: "매일" },
+];
+
+// 30분 단위 시간 드롭다운
+const TIME_OPTIONS = [
+  ...Array.from({ length: 36 }, (_, i) => {
+    const total = 6 * 60 + i * 30;
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    const period = h < 12 ? "오전" : "오후";
+    const dh = h <= 12 ? h : h - 12;
+    const label = `${period} ${dh}:${m.toString().padStart(2, "0")}`;
+    return label;
+  }),
+];
+
 const DEFAULT_SERVICES: ServiceItem[] = [
-  { name: "주일 대예배", time: "오전 11:00", day: "매주 일요일" },
-  { name: "수요 예배", time: "오후 7:30", day: "매주 수요일" },
-  { name: "금요 철야", time: "오후 9:00", day: "매주 금요일" },
-  { name: "새벽 기도회", time: "오전 5:30", day: "월~토요일" },
+  { name: "주일 대예배", time: "오전 11:00", day: "매주 일요일", dayNum: 0 },
+  { name: "수요 예배", time: "오후 7:30", day: "매주 수요일", dayNum: 3 },
+  { name: "금요 철야", time: "오후 9:00", day: "매주 금요일", dayNum: 5 },
+  { name: "새벽 기도회", time: "오전 5:30", day: "매일", dayNum: 7 },
 ];
 
 export default function AdminPage() {
@@ -98,7 +124,7 @@ export default function AdminPage() {
 
   // 예배 시간 CRUD
   const addServiceItem = () =>
-    setServices([...services, { name: "", time: "", day: "" }]);
+    setServices([...services, { name: "", time: "오전 11:00", day: "매주 일요일", dayNum: 0 }]);
   const updateServiceItem = (i: number, field: keyof ServiceItem, v: string) =>
     setServices(services.map((s, idx) => (idx === i ? { ...s, [field]: v } : s)));
   const removeServiceItem = (i: number) =>
@@ -192,10 +218,27 @@ export default function AdminPage() {
                       <input type="text" value={svc.name || ""} onChange={(e) => updateServiceItem(index, "name", e.target.value)}
                         placeholder="예배명 (예: 주일 대예배)" className={inputClass} />
                       <div className="grid grid-cols-2 gap-2">
-                        <input type="text" value={svc.time || ""} onChange={(e) => updateServiceItem(index, "time", e.target.value)}
-                          placeholder="시간 (예: 오전 11:00)" className={inputClass} />
-                        <input type="text" value={svc.day || ""} onChange={(e) => updateServiceItem(index, "day", e.target.value)}
-                          placeholder="요일 (예: 매주 일요일)" className={inputClass} />
+                        <select value={svc.time || "오전 11:00"} onChange={(e) => updateServiceItem(index, "time", e.target.value)}
+                          className={inputClass}>
+                          {TIME_OPTIONS.map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={svc.dayNum ?? 0}
+                          onChange={(e) => {
+                            const num = parseInt(e.target.value, 10);
+                            const label = DAY_OPTIONS.find((d) => d.value === num)?.label || "";
+                            setServices(services.map((s, idx) =>
+                              idx === index ? { ...s, dayNum: num, day: label } : s
+                            ));
+                          }}
+                          className={inputClass}
+                        >
+                          {DAY_OPTIONS.map((d) => (
+                            <option key={d.value} value={d.value}>{d.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                     <button onClick={() => removeServiceItem(index)}
